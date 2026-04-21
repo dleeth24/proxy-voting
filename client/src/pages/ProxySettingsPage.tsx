@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMe, setStandingProxy, removeStandingProxy } from '../api/users';
+import { getMe, setStandingProxy, removeStandingProxy, getPartners } from '../api/users';
 import { getProxyHolders } from '../api/admin';
+
+interface Partner {
+  id: string;
+  name: string;
+  email: string;
+}
 
 interface ProxyHolder {
   userId: string;
@@ -24,6 +30,11 @@ export default function ProxySettingsPage() {
     queryFn: getMe,
   });
 
+  const { data: partners } = useQuery<Partner[]>({
+    queryKey: ['partners'],
+    queryFn: getPartners,
+  });
+
   const { data: holders } = useQuery<ProxyHolder[]>({
     queryKey: ['proxy-holders'],
     queryFn: getProxyHolders,
@@ -31,14 +42,21 @@ export default function ProxySettingsPage() {
 
   const setMutation = useMutation({
     mutationFn: (proxyId: string) => setStandingProxy(proxyId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['effective-proxy'] });
+    },
   });
 
   const removeMutation = useMutation({
     mutationFn: removeStandingProxy,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['effective-proxy'] });
+    },
   });
 
+  const availablePartners = partners?.filter(p => p.id !== me?.standingProxy?.id) ?? [];
   const availableHolders = holders?.filter(h => h.userId !== me?.id) ?? [];
 
   return (
@@ -80,7 +98,7 @@ export default function ProxySettingsPage() {
           <p className="text-sm text-gray-500 italic mb-3">No standing proxy set — you vote directly.</p>
         )}
 
-        {availableHolders.length > 0 && (
+        {availablePartners.length > 0 && (
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               {me?.standingProxy ? 'Change standing proxy' : 'Set standing proxy'}
@@ -95,10 +113,10 @@ export default function ProxySettingsPage() {
                 }}
                 disabled={setMutation.isPending}
               >
-                <option value="">Choose a proxy holder…</option>
-                {availableHolders.map(h => (
-                  <option key={h.userId} value={h.userId}>
-                    {h.user.name}
+                <option value="">Choose a partner…</option>
+                {availablePartners.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
                   </option>
                 ))}
               </select>

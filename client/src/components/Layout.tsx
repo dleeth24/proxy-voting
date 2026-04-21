@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import { queryClient } from '../main';
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
@@ -7,6 +8,7 @@ export default function Layout() {
 
   function handleLogout() {
     logout();
+    queryClient.clear();
     navigate('/login');
   }
 

@@ -32,13 +32,23 @@ router.get('/me', requireAuth, async (req, res) => {
   res.json(user);
 });
 
+// GET /users/partners — all partners (for proxy selection)
+router.get('/partners', requireAuth, async (req, res) => {
+  const users = await prisma.user.findMany({
+    where: { id: { not: req.user!.id } },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json(users);
+});
+
 // PUT /users/me/standing-proxy { proxyId }
 router.put('/me/standing-proxy', requireAuth, async (req, res) => {
   const { proxyId } = req.body;
   if (!proxyId) return res.status(400).json({ error: 'proxyId required' });
 
-  const approved = await prisma.approvedProxyHolder.findUnique({ where: { userId: proxyId } });
-  if (!approved) return res.status(400).json({ error: 'That user is not an approved proxy holder' });
+  const target = await prisma.user.findUnique({ where: { id: proxyId } });
+  if (!target) return res.status(400).json({ error: 'User not found' });
   if (proxyId === req.user!.id) return res.status(400).json({ error: 'Cannot proxy to yourself' });
 
   const user = await prisma.user.update({

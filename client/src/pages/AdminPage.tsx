@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getBallots, createBallot } from '../api/ballots';
@@ -329,9 +329,18 @@ function SettingsTab() {
   const [color, setColor] = useState('#1e3a5f');
   const [saved, setSaved] = useState(false);
 
+  const { data: settings } = useQuery<Record<string, string>>({
+    queryKey: ['settings'],
+    queryFn: () => api.get('/settings').then(r => r.data),
+  });
+
+  useEffect(() => {
+    if (settings?.primaryColor) setColor(settings.primaryColor);
+  }, [settings?.primaryColor]);
+
   const saveMutation = useMutation({
     mutationFn: (value: string) =>
-      api.put('/api/v1/settings', { key: 'primaryColor', value }).then(r => r.data),
+      api.put('/settings', { key: 'primaryColor', value }).then(r => r.data),
     onSuccess: () => {
       document.documentElement.style.setProperty('--color-primary', color);
       qc.invalidateQueries({ queryKey: ['settings'] });
