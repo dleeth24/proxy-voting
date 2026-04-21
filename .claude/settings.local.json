@@ -28,7 +28,10 @@
       "Bash(pkill -9 -f \"tsx\")",
       "Bash(pkill -9 -f \"vite\")",
       "Bash(pkill -9 -f \"esbuild\")",
-      "Bash(pkill -9 -f \"node\")"
+      "Bash(pkill -9 -f \"node\")",
+      "Bash(gh auth:*)",
+      "Bash(git -C \"/Users/DavisLeeth_1/Desktop/Personal Projects/Vibe Coding/proxy-voting\" push -u origin main)",
+      "Bash(gh api:*)"
     ]
   }
 }
