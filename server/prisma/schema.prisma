@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PARTNER
+  ADMIN
+}
+
+enum BallotStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum AuditAction {
+  BALLOT_CREATED
+  BALLOT_OPENED
+  BALLOT_CLOSED
+  VOTE_CAST
+  PROXY_VOTE_CAST
+  STANDING_PROXY_SET
+  STANDING_PROXY_REVOKED
+  BALLOT_PROXY_OVERRIDE_SET
+  BALLOT_PROXY_OVERRIDE_REVOKED
+  PROXY_HOLDER_ADDED
+  PROXY_HOLDER_REMOVED
+  USER_LOGIN
+  SETTINGS_UPDATED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(PARTNER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  standingProxyId  String?
+  standingProxy    User?   @relation("StandingProxy", fields: [standingProxyId], references: [id])
+  standingProxyFor User[]  @relation("StandingProxy")
+
+  approvedProxyHolder ApprovedProxyHolder?
+
+  ballotsCreated Ballot[]
+  votesCast      Vote[]   @relation("VotesCastBy")
+  votesOwned     Vote[]   @relation("VotesOwnedBy")
+
+  proxyOverridesAsPrincipal BallotProxyOverride[] @relation("Principal")
+  proxyOverridesAsProxy     BallotProxyOverride[] @relation("Proxy")
+
+  auditLogs                  AuditLog[]
+  approvedProxyHolderAddedBy ApprovedProxyHolder[] @relation("AddedBy")
+}
+
+model ApprovedProxyHolder {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id])
+  addedById String
+  addedBy   User     @relation("AddedBy", fields: [addedById], references: [id])
+  addedAt   DateTime @default(now())
+}
+
+model Ballot {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  status      BallotStatus @default(DRAFT)
+  isSecret    Boolean      @default(true)
+  opensAt     DateTime?
+  closesAt    DateTime?
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  options        BallotOption[]
+  votes          Vote[]
+  proxyOverrides BallotProxyOverride[]
+  auditLogs      AuditLog[]
+}
+
+model BallotOption {
+  id         String @id @default(uuid())
+  ballotId   String
+  ballot     Ballot @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  label      String
+  orderIndex Int
+  votes      Vote[]
+
+  @@unique([ballotId, orderIndex])
+}
+
+model Vote {
+  id          String       @id @default(uuid())
+  ballotId    String
+  ballot      Ballot       @relation(fields: [ballotId], references: [id])
+  optionId    String
+  option      BallotOption @relation(fields: [optionId], references: [id])
+  ownerId     String
+  owner       User         @relation("VotesOwnedBy", fields: [ownerId], references: [id])
+  castById    String
+  castBy      User         @relation("VotesCastBy", fields: [castById], references: [id])
+  isProxyVote Boolean      @default(false)
+  castAt      DateTime     @default(now())
+
+  @@unique([ballotId, ownerId])
+}
+
+model BallotProxyOverride {
+  id          String   @id @default(uuid())
+  ballotId    String
+  ballot      Ballot   @relation(fields: [ballotId], references: [id])
+  principalId String
+  principal   User     @relation("Principal", fields: [principalId], references: [id])
+  proxyId     String
+  proxy       User     @relation("Proxy", fields: [proxyId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([ballotId, principalId])
+}
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  action    AuditAction
+  actorId   String
+  actor     User        @relation(fields: [actorId], references: [id])
+  ballotId  String?
+  ballot    Ballot?     @relation(fields: [ballotId], references: [id])
+  targetId  String?
+  metadata  Json?
+  createdAt DateTime    @default(now())
+}
+
+model AppSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
