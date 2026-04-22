@@ -18,7 +18,10 @@ export default function Layout() {
       <nav className="nav-bg text-white shadow-md">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <span className="font-semibold text-lg tracking-tight">Partner Voting</span>
+            <div className="leading-none">
+              <div className="font-bold text-base tracking-tight">Burr &amp; Forman</div>
+              <div className="text-[10px] opacity-60 font-medium tracking-wide uppercase mt-0.5">Partner Voting</div>
+            </div>
             <NavLink
               to="/"
               end

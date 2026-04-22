@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getBallots } from '../api/ballots';
 import { useAuthStore } from '../store/auth';
+import Spinner from '../components/Spinner';
 
 interface Ballot {
   id: string;
@@ -47,7 +48,10 @@ export default function DashboardPage() {
       </h1>
 
       {isLoading && (
-        <div className="text-gray-500">Loading ballots…</div>
+        <div className="flex items-center gap-2 text-gray-400 py-4">
+          <Spinner className="w-5 h-5" />
+          <span className="text-sm">Loading ballots…</span>
+        </div>
       )}
 
       {/* Open ballots */}

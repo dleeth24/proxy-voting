@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMe, setStandingProxy, removeStandingProxy, getPartners } from '../api/users';
-import { getProxyHolders } from '../api/admin';
+import Spinner from '../components/Spinner';
 
 interface Partner {
   id: string;
@@ -8,24 +8,17 @@ interface Partner {
   email: string;
 }
 
-interface ProxyHolder {
-  userId: string;
-  user: { id: string; name: string; email: string };
-  addedBy: { name: string };
-}
-
 interface UserProfile {
   id: string;
   name: string;
   email: string;
   standingProxy: { id: string; name: string } | null;
-  approvedProxyHolder: { addedAt: string } | null;
 }
 
 export default function ProxySettingsPage() {
   const qc = useQueryClient();
 
-  const { data: me } = useQuery<UserProfile>({
+  const { data: me, isLoading: meLoading } = useQuery<UserProfile>({
     queryKey: ['me'],
     queryFn: getMe,
   });
@@ -33,11 +26,6 @@ export default function ProxySettingsPage() {
   const { data: partners } = useQuery<Partner[]>({
     queryKey: ['partners'],
     queryFn: getPartners,
-  });
-
-  const { data: holders } = useQuery<ProxyHolder[]>({
-    queryKey: ['proxy-holders'],
-    queryFn: getProxyHolders,
   });
 
   const setMutation = useMutation({
@@ -56,28 +44,23 @@ export default function ProxySettingsPage() {
     },
   });
 
-  const availablePartners = partners?.filter(p => p.id !== me?.standingProxy?.id) ?? [];
-  const availableHolders = holders?.filter(h => h.userId !== me?.id) ?? [];
+  if (meLoading) return (
+    <div className="flex items-center gap-2 text-gray-400 py-4">
+      <Spinner className="w-5 h-5" />
+      <span className="text-sm">Loading…</span>
+    </div>
+  );
+
+  const availablePartners = partners?.filter(p => p.id !== me?.id && p.id !== me?.standingProxy?.id) ?? [];
 
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">My Proxy Settings</h1>
 
-      {me?.approvedProxyHolder && (
-        <div className="card mb-6 border-l-4" style={{ borderColor: 'var(--color-primary)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
-            You are an approved proxy holder
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Other partners may designate you to vote on their behalf.
-          </p>
-        </div>
-      )}
-
       <div className="card">
         <h2 className="font-semibold text-gray-800 mb-1">Standing Proxy</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Your standing proxy votes for you on all ballots unless you set a ballot-specific override.
+          Your standing proxy votes on your behalf for all ballots when you're unavailable.
         </p>
 
         {me?.standingProxy ? (
@@ -126,33 +109,6 @@ export default function ProxySettingsPage() {
 
         {setMutation.isError && (
           <p className="text-sm text-red-600 mt-2">Failed to set proxy. Please try again.</p>
-        )}
-      </div>
-
-      <div className="card mt-4">
-        <h2 className="font-semibold text-gray-800 mb-1">Approved Proxy Holders</h2>
-        <p className="text-sm text-gray-500 mb-3">
-          These partners have been approved by admins to act as proxies.
-        </p>
-        {availableHolders.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">No approved proxy holders yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {availableHolders.map(h => (
-              <div key={h.userId} className="flex items-center gap-3 text-sm">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ backgroundColor: 'var(--color-primary)' }}
-                >
-                  {h.user.name.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-medium text-gray-800">{h.user.name}</p>
-                  <p className="text-xs text-gray-400">Added by {h.addedBy.name}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>

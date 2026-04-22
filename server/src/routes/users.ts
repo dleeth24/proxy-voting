@@ -4,7 +4,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth';
 
 const router = Router();
 
-// GET /users — admin: all partners
+// GET /users — admin: all users
 router.get('/', requireAuth, requireAdmin, async (_req, res) => {
   const users = await prisma.user.findMany({
     select: {
@@ -13,7 +13,6 @@ router.get('/', requireAuth, requireAdmin, async (_req, res) => {
       email: true,
       role: true,
       standingProxy: { select: { id: true, name: true } },
-      approvedProxyHolder: { select: { addedAt: true } },
     },
     orderBy: { name: 'asc' },
   });
@@ -26,7 +25,6 @@ router.get('/me', requireAuth, async (req, res) => {
     where: { id: req.user!.id },
     include: {
       standingProxy: { select: { id: true, name: true } },
-      approvedProxyHolder: true,
     },
   });
   res.json(user);

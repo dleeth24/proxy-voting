@@ -13,6 +13,7 @@ import {
   closeBallot,
 } from '../api/ballots';
 import { useAuthStore } from '../store/auth';
+import Spinner from '../components/Spinner';
 
 interface BallotOption {
   id: string;
@@ -124,7 +125,12 @@ export default function BallotDetailPage() {
     },
   });
 
-  if (isLoading) return <div className="text-gray-500">Loading…</div>;
+  if (isLoading) return (
+    <div className="flex items-center gap-2 text-gray-400 py-4">
+      <Spinner className="w-5 h-5" />
+      <span className="text-sm">Loading ballot…</span>
+    </div>
+  );
   if (!ballot) return <div className="text-red-600">Ballot not found.</div>;
 
   const isAdmin = user?.role === 'ADMIN';
@@ -189,15 +195,16 @@ export default function BallotDetailPage() {
       </div>
 
       {/* Proxy notice */}
-      {proxyedOut && ballot.status === 'OPEN' && !hasVoted && (
+      {proxyedOut && !hasVoted && (
         <div className="card mb-4 border-l-4" style={{ borderColor: 'var(--color-primary)' }}>
           <p className="text-sm text-gray-700">
             Your vote will be cast by{' '}
             <strong>{effectiveProxy.proxy.name}</strong>{' '}
-            ({effectiveProxy.source === 'override' ? 'ballot override' : 'standing proxy'}).
+            <span className="text-gray-400">(standing proxy)</span>
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            You can change this on the <a href="/proxy" className="underline">My Proxy</a> page.
+            To change your proxy, visit the{' '}
+            <a href="/proxy" className="underline">My Proxy</a> page.
           </p>
         </div>
       )}
@@ -278,7 +285,7 @@ export default function BallotDetailPage() {
       {ballot.status === 'OPEN' && principals && principals.length > 0 && (
         <div className="card mb-4">
           <h2 className="font-semibold text-gray-800 mb-1">Proxy votes to cast</h2>
-          <p className="text-xs text-gray-500 mb-3">Partners who designated you as their proxy on this ballot</p>
+          <p className="text-xs text-gray-500 mb-3">Partners who designated you as their proxy</p>
           <div className="space-y-3">
             {principals.map(p => (
               <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200">

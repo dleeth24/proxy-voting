@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getBallots, createBallot } from '../api/ballots';
-import { getProxyHolders, addProxyHolder, removeProxyHolder } from '../api/admin';
-import { getUsers } from '../api/users';
 import api from '../api/client';
 
 interface Ballot {
@@ -15,21 +13,7 @@ interface Ballot {
   createdBy: { name: string };
 }
 
-interface ProxyHolder {
-  userId: string;
-  user: { id: string; name: string; email: string };
-  addedBy: { name: string };
-}
-
-interface UserItem {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  approvedProxyHolder: null | { addedAt: string };
-}
-
-type Tab = 'ballots' | 'proxy-holders' | 'settings';
+type Tab = 'ballots' | 'settings';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('ballots');
@@ -39,7 +23,7 @@ export default function AdminPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Admin</h1>
 
       <div className="flex gap-1 mb-6 border-b border-gray-200">
-        {(['ballots', 'proxy-holders', 'settings'] as Tab[]).map(t => (
+        {(['ballots', 'settings'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -50,13 +34,12 @@ export default function AdminPage() {
             }`}
             style={tab === t ? { color: 'var(--color-primary)', borderColor: 'var(--color-primary)' } : {}}
           >
-            {t === 'proxy-holders' ? 'Proxy Holders' : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
       {tab === 'ballots' && <BallotsTab />}
-      {tab === 'proxy-holders' && <ProxyHoldersTab />}
       {tab === 'settings' && <SettingsTab />}
     </div>
   );
@@ -227,96 +210,6 @@ function BallotsTab() {
             </div>
           </Link>
         ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Proxy Holders Tab ────────────────────────────────────────────────────────
-
-function ProxyHoldersTab() {
-  const qc = useQueryClient();
-
-  const { data: holders } = useQuery<ProxyHolder[]>({
-    queryKey: ['proxy-holders'],
-    queryFn: getProxyHolders,
-  });
-
-  const { data: users } = useQuery<UserItem[]>({
-    queryKey: ['users'],
-    queryFn: getUsers,
-  });
-
-  const addMutation = useMutation({
-    mutationFn: (userId: string) => addProxyHolder(userId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['proxy-holders'] });
-      qc.invalidateQueries({ queryKey: ['users'] });
-    },
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (userId: string) => removeProxyHolder(userId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['proxy-holders'] });
-      qc.invalidateQueries({ queryKey: ['users'] });
-    },
-  });
-
-  const holderIds = new Set(holders?.map(h => h.userId) ?? []);
-  const nonHolders = users?.filter(u => !holderIds.has(u.id)) ?? [];
-
-  return (
-    <div className="max-w-xl">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Approved Proxy Holders</h2>
-
-      <div className="card mb-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Add a proxy holder</h3>
-        <select
-          className="form-select"
-          defaultValue=""
-          onChange={e => {
-            if (e.target.value) addMutation.mutate(e.target.value);
-            e.target.value = '';
-          }}
-          disabled={addMutation.isPending}
-        >
-          <option value="">Select a partner to approve…</option>
-          {nonHolders.map(u => (
-            <option key={u.id} value={u.id}>
-              {u.name} ({u.role})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        {holders?.map(h => (
-          <div key={h.userId} className="card flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                style={{ backgroundColor: 'var(--color-primary)' }}
-              >
-                {h.user.name.charAt(0)}
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 text-sm">{h.user.name}</p>
-                <p className="text-xs text-gray-400">{h.user.email} · Added by {h.addedBy.name}</p>
-              </div>
-            </div>
-            <button
-              className="btn-danger text-sm"
-              onClick={() => removeMutation.mutate(h.userId)}
-              disabled={removeMutation.isPending}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        {holders?.length === 0 && (
-          <p className="text-sm text-gray-400 italic">No approved proxy holders yet.</p>
-        )}
       </div>
     </div>
   );

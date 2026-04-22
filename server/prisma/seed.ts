@@ -52,16 +52,6 @@ async function main() {
   const [margaret, robert] = admins;
   const [james, diana, samuel, priya, thomas, claire, michael, helen, carlos, naomi, edward, yuki] = partners;
 
-  // ── Approved proxy holders ───────────────────────────────────────────────
-
-  for (const holder of [james, diana, samuel, robert]) {
-    await prisma.approvedProxyHolder.upsert({
-      where: { userId: holder.id },
-      update: {},
-      create: { userId: holder.id, addedById: margaret.id },
-    });
-  }
-
   // ── Standing proxies ─────────────────────────────────────────────────────
 
   await prisma.user.update({ where: { id: thomas.id }, data: { standingProxyId: diana.id } });

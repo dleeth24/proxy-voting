@@ -68,7 +68,6 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
   const { title, description, isSecret, opensAt, closesAt, options } = req.body;
 
-  // Delete existing options and recreate
   await prisma.ballotOption.deleteMany({ where: { ballotId: req.params.id } });
 
   const ballot = await prisma.ballot.update({
@@ -181,65 +180,13 @@ router.get('/:id/my-vote', requireAuth, async (req, res) => {
   res.json(vote ?? null);
 });
 
-// GET /ballots/:id/effective-proxy
+// GET /ballots/:id/effective-proxy — returns the user's standing proxy for this ballot
 router.get('/:id/effective-proxy', requireAuth, async (req, res) => {
-  const { id: ballotId } = req.params;
-  const principalId = req.user!.id;
-
-  const override = await prisma.ballotProxyOverride.findUnique({
-    where: { ballotId_principalId: { ballotId, principalId } },
-    include: { proxy: { select: { id: true, name: true } } },
-  });
-  if (override) return res.json({ proxy: override.proxy, source: 'override' });
-
   const user = await prisma.user.findUnique({
-    where: { id: principalId },
+    where: { id: req.user!.id },
     include: { standingProxy: { select: { id: true, name: true } } },
   });
-  if (user?.standingProxy) return res.json({ proxy: user.standingProxy, source: 'standing' });
-
-  res.json({ proxy: null, source: null });
-});
-
-// PUT /ballots/:id/proxy-override { proxyId }
-router.put('/:id/proxy-override', requireAuth, async (req, res) => {
-  const { proxyId } = req.body;
-  const approved = await prisma.approvedProxyHolder.findUnique({ where: { userId: proxyId } });
-  if (!approved) return res.status(400).json({ error: 'Not an approved proxy holder' });
-
-  const override = await prisma.ballotProxyOverride.upsert({
-    where: { ballotId_principalId: { ballotId: req.params.id, principalId: req.user!.id } },
-    update: { proxyId },
-    create: { ballotId: req.params.id, principalId: req.user!.id, proxyId },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      action: 'BALLOT_PROXY_OVERRIDE_SET',
-      actorId: req.user!.id,
-      ballotId: req.params.id,
-      targetId: proxyId,
-    },
-  });
-
-  res.json(override);
-});
-
-// DELETE /ballots/:id/proxy-override
-router.delete('/:id/proxy-override', requireAuth, async (req, res) => {
-  await prisma.ballotProxyOverride.deleteMany({
-    where: { ballotId: req.params.id, principalId: req.user!.id },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      action: 'BALLOT_PROXY_OVERRIDE_REVOKED',
-      actorId: req.user!.id,
-      ballotId: req.params.id,
-    },
-  });
-
-  res.json({ ok: true });
+  res.json({ proxy: user?.standingProxy ?? null });
 });
 
 // POST /ballots/:id/vote { optionId }
@@ -284,17 +231,9 @@ router.post('/:id/proxy-vote', requireAuth, async (req, res) => {
   const { principalId, optionId } = req.body;
   const proxyId = req.user!.id;
 
-  const approved = await prisma.approvedProxyHolder.findUnique({ where: { userId: proxyId } });
-  if (!approved) return res.status(403).json({ error: 'You are not an approved proxy holder' });
-
-  const override = await prisma.ballotProxyOverride.findUnique({
-    where: { ballotId_principalId: { ballotId: req.params.id, principalId } },
-  });
   const principal = await prisma.user.findUnique({ where: { id: principalId } });
-
-  const effectiveProxyId = override?.proxyId ?? principal?.standingProxyId ?? null;
-  if (effectiveProxyId !== proxyId) {
-    return res.status(403).json({ error: 'You are not the designated proxy for this partner on this ballot' });
+  if (!principal || principal.standingProxyId !== proxyId) {
+    return res.status(403).json({ error: 'You are not the designated proxy for this partner' });
   }
 
   const ballot = await prisma.ballot.findUnique({ where: { id: req.params.id } });
@@ -332,53 +271,23 @@ router.post('/:id/proxy-vote', requireAuth, async (req, res) => {
   }
 });
 
-// GET /ballots/:id/proxy-principals — for proxy holders to see who they vote for
+// GET /ballots/:id/proxy-principals — partners who set the current user as their standing proxy
 router.get('/:id/proxy-principals', requireAuth, async (req, res) => {
   const proxyHolderId = req.user!.id;
   const ballotId = req.params.id;
 
-  // Standing proxy principals
-  const standingPrincipals = await prisma.user.findMany({
+  const principals = await prisma.user.findMany({
     where: { standingProxyId: proxyHolderId },
     select: { id: true, name: true, email: true },
   });
 
-  // Per-ballot override principals for this ballot
-  const overrides = await prisma.ballotProxyOverride.findMany({
-    where: { ballotId, proxyId: proxyHolderId },
-    include: { principal: { select: { id: true, name: true, email: true } } },
-  });
-  const overridePrincipalIds = new Set(overrides.map(o => o.principalId));
-
-  // Standing principals who have a different override for this ballot (exclude them)
-  const conflictingOverrides = await prisma.ballotProxyOverride.findMany({
-    where: {
-      ballotId,
-      principalId: { in: standingPrincipals.map(p => p.id) },
-      proxyId: { not: proxyHolderId },
-    },
-    select: { principalId: true },
-  });
-  const conflictingIds = new Set(conflictingOverrides.map(o => o.principalId));
-
-  const effectivePrincipals = [
-    ...standingPrincipals.filter(p => !conflictingIds.has(p.id) && !overridePrincipalIds.has(p.id)),
-    ...overrides.map(o => o.principal),
-  ];
-
-  // Attach vote status
   const votes = await prisma.vote.findMany({
-    where: { ballotId, ownerId: { in: effectivePrincipals.map(p => p.id) } },
+    where: { ballotId, ownerId: { in: principals.map(p => p.id) } },
     select: { ownerId: true },
   });
   const votedSet = new Set(votes.map(v => v.ownerId));
 
-  res.json(
-    effectivePrincipals.map(p => ({
-      ...p,
-      hasVoted: votedSet.has(p.id),
-    }))
-  );
+  res.json(principals.map(p => ({ ...p, hasVoted: votedSet.has(p.id) })));
 });
 
 export default router;

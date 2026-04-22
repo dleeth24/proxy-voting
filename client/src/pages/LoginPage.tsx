@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
+import Spinner from '../components/Spinner';
 
 interface MockUser {
   id: string;
@@ -67,15 +68,15 @@ export default function LoginPage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Partner Voting</h1>
-          <p className="text-sm text-gray-500 mt-1">Select your account to continue</p>
-          <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-1.5 inline-block">
-            Development mode — no password required
-          </div>
+          <p className="text-xs font-semibold tracking-widest uppercase text-gray-400 mb-1">Burr &amp; Forman</p>
+          <h1 className="text-2xl font-bold text-gray-900">Partner Voting Portal</h1>
+          <p className="text-sm text-gray-500 mt-1">Select your profile to continue</p>
         </div>
 
         {isLoading ? (
-          <div className="text-center text-gray-500 py-4">Loading users...</div>
+          <div className="flex justify-center py-6">
+            <Spinner className="w-6 h-6 text-gray-400" />
+          </div>
         ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -88,12 +89,12 @@ export default function LoginPage() {
                 onChange={e => setSelectedEmail(e.target.value)}
                 required
               >
-                <option value="">Choose a user…</option>
+                <option value="">Choose a partner…</option>
                 {admins.length > 0 && (
-                  <optgroup label="Admins">
+                  <optgroup label="Firm Administration">
                     {admins.map(u => (
                       <option key={u.id} value={u.email}>
-                        {u.name} — {u.email}
+                        {u.name}
                       </option>
                     ))}
                   </optgroup>
@@ -102,7 +103,7 @@ export default function LoginPage() {
                   <optgroup label="Partners">
                     {partners.map(u => (
                       <option key={u.id} value={u.email}>
-                        {u.name} — {u.email}
+                        {u.name}
                       </option>
                     ))}
                   </optgroup>
@@ -117,7 +118,14 @@ export default function LoginPage() {
               className="btn-primary w-full"
               disabled={!selectedEmail || loginMutation.isPending}
             >
-              {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
+              {loginMutation.isPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner className="w-4 h-4" />
+                  Signing in…
+                </span>
+              ) : (
+                'Continue'
+              )}
             </button>
           </form>
         )}

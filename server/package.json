@@ -6,6 +6,7 @@
     "build": "tsc",
     "migrate": "prisma migrate dev",
     "seed": "tsx prisma/seed.ts",
+    "demo:reset": "tsx prisma/demo-reset.ts && tsx prisma/seed.ts",
     "studio": "prisma studio",
     "generate": "prisma generate"
   },
